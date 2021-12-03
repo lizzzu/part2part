@@ -10,7 +10,7 @@
 
 #include "validation.hpp"
 
-#define LISTEN_BACKLOG 20
+#define MAX_CONNECTIONS 20
 #define MAX_THREADS 100
 
 extern int errno;
@@ -23,7 +23,7 @@ int sayHello(int fd);
 
 int main(int argc, char* argv[]) {
 	char host[20];
-	uint16_t port;
+	int port;
 
 	getIPandPort(host, port);
 
@@ -82,7 +82,7 @@ void runServer(const char* host, int port) {
 		exit(1);
 	}
 
-	if(listen(sd, LISTEN_BACKLOG) == -1) {
+	if(listen(sd, MAX_CONNECTIONS) == -1) {
 		perror("[SERVER] Error: listen()");
 		exit(EXIT_FAILURE);
 	}

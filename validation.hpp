@@ -6,7 +6,7 @@
 
 #define LOCALHOST "127.0.0.1"
 
-bool validateIPaddr(char* host) {
+bool validateIPaddr(const char* host) {
     if(strlen(host) == 1 && host[0] == '0')
         return true;
 
@@ -32,7 +32,7 @@ bool validateIPaddr(char* host) {
     return true;
 }
 
-bool validatePort(char* port) {
+bool validatePort(const char* port) {
     for(int i = 0; i < strlen(port); i++) {
         if(!isdigit(port[i]))
             return false;
@@ -41,7 +41,7 @@ bool validatePort(char* port) {
     return true;
 }
 
-void getIPandPort(char* host, uint16_t &port) {
+void getIPandPort(char* host, int &port) {
 	char p[20];
 
 	// IP
@@ -65,10 +65,6 @@ void getIPandPort(char* host, uint16_t &port) {
 	}
     
     port = atoi(p);
-
-	printf("-----------------------------------\n");
-	printf("IP address: %s || Port: %d\n", host, port);
-	printf("-----------------------------------\n");
 }
 
 #endif // VALIDATION_H
