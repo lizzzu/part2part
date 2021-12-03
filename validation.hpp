@@ -4,6 +4,8 @@
 #include <cstring>
 #include <cctype>
 
+#define LOCALHOST "127.0.0.1"
+
 bool validateIPaddr(char* host) {
     if(strlen(host) == 1 && host[0] == '0')
         return true;
@@ -37,6 +39,36 @@ bool validatePort(char* port) {
     }
 
     return true;
+}
+
+void getIPandPort(char* host, uint16_t &port) {
+	char p[20];
+
+	// IP
+	printf("Enter server IP (for localhost, enter 0):\n> ");
+	scanf("%s", host);
+
+	while(!validateIPaddr(host)) {
+		printf("Invalid IP address. Try again:\n> ");
+		scanf("%s", host);
+	}
+	if(strlen(host) == 1 && host[0] == '0')
+		strcpy(host, LOCALHOST);
+
+	// PORT
+	printf("Enter port number:\n> ");
+	scanf("%s", p);
+
+	while(!validatePort(p)) {
+		printf("Invalid port number. Try again:\n> ");
+		scanf("%s", p);
+	}
+    
+    port = atoi(p);
+
+	printf("-----------------------------------\n");
+	printf("IP address: %s || Port: %d\n", host, port);
+	printf("-----------------------------------\n");
 }
 
 #endif // VALIDATION_H

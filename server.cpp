@@ -10,7 +10,6 @@
 
 #include "validation.hpp"
 
-#define LOCALHOST "127.0.0.1"
 #define LISTEN_BACKLOG 20
 #define MAX_THREADS 100
 
@@ -24,32 +23,9 @@ int sayHello(int fd);
 
 int main(int argc, char* argv[]) {
 	char host[20];
-	char p[20];
+	uint16_t port;
 
-	// IP
-	printf("Enter server IP (for localhost, enter 0):\n> ");
-	scanf("%s", host);
-
-	while(!validateIPaddr(host)) {
-		printf("Invalid IP address. Try again:\n> ");
-		scanf("%s", host);
-	}
-	if(strlen(host) == 1 && host[0] == '0')
-		strcpy(host, LOCALHOST);
-
-	// port
-	printf("Enter port number:\n> ");
-	scanf("%s", p);
-
-	while(!validatePort(p)) {
-		printf("Invalid port number. Try again:\n> ");
-		scanf("%s", p);
-	}
-	uint16_t port = atoi(p);
-	
-	printf("-----------------------------------\n");
-	printf("IP address: %s || Port: %d\n", host, port);
-	printf("-----------------------------------\n");
+	getIPandPort(host, port);
 
 	pthread_t th[MAX_THREADS];
 
@@ -102,7 +78,7 @@ void runServer(const char* host, int port) {
 	printf("[SERVER] sd = %d\n", sd);
 
 	if(sd == errno) {
-		printf("[SERVER] Cannot create server");
+		printf("[SERVER] Cannot create server\n");
 		exit(1);
 	}
 

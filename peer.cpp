@@ -9,49 +9,28 @@
 
 #include "validation.hpp"
 
-#define LOCALHOST "127.0.0.1"
-
 extern int errno;
 
 int initPeer(const char* host, int port);
+int getPeerInput();
 void sendRequest(const char* host, int port);
 
-void searchFile();
+void searchFile(const char* filename);
 void downloadFile();
-void removeFile();
+void uploadFile();
 
 int main(int argc, char* argv[]) {
-    printf("******** Welcome! ********\n");
+    printf("******** Welcome dear peer! ********\n");
 
     char host[20];
-	char p[20];
-
-	// IP
-	printf("Enter server IP (for localhost, enter 0):\n> ");
-	scanf("%s", host);
-
-	while(!validateIPaddr(host)) {
-		printf("Invalid IP address. Try again:\n> ");
-		scanf("%s", host);
-	}
-	if(strlen(host) == 1 && host[0] == '0')
-		strcpy(host, LOCALHOST);
-
-	// port
-	printf("Enter port number:\n> ");
-	scanf("%s", p);
-
-	while(!validatePort(p)) {
-		printf("Invalid port number. Try again:\n> ");
-		scanf("%s", p);
-	}
-	uint16_t port = atoi(p);
-	
-	printf("-----------------------------------\n");
-	printf("IP address: %s || Port: %d\n", host, port);
-	printf("-----------------------------------\n");
+	uint16_t port;
     
-    sendRequest(host, port);
+    getIPandPort(host, port);
+    initPeer(host, port);
+
+    // getPeerInput();
+    
+    // sendRequest(host, port);
     
     return 0;
 }
@@ -78,6 +57,10 @@ int initPeer(const char* host, int port) {
     }
 
     return sd;
+}
+
+int getPeerInput() {
+    return 0;
 }
 
 void sendRequest(const char* host, int port) {
