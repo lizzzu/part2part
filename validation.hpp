@@ -45,26 +45,28 @@ void getIPandPort(char* host, int &port) {
 	char p[20];
 
 	// IP
-	printf("Enter server IP (for localhost, enter 0):\n> ");
+	printf("Enter IP (for localhost, enter 0): ");
 	scanf("%s", host);
 
 	while(!validateIPaddr(host)) {
-		printf("Invalid IP address. Try again:\n> ");
+		printf("Invalid IP address. Try again: ");
 		scanf("%s", host);
 	}
 	if(strlen(host) == 1 && host[0] == '0')
 		strcpy(host, LOCALHOST);
 
 	// PORT
-	printf("Enter port number:\n> ");
+	printf("Enter port number: ");
 	scanf("%s", p);
 
 	while(!validatePort(p)) {
-		printf("Invalid port number. Try again:\n> ");
+		printf("Invalid port number. Try again: ");
 		scanf("%s", p);
 	}
     
     port = atoi(p);
+
+    printf("\n");
 }
 
 #endif // VALIDATION_H

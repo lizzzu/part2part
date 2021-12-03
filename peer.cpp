@@ -13,6 +13,9 @@
 extern int errno;
 
 int initPeer(const char* host, int port);
+int createPeerServer();
+int connectToPeer(const char* host, int port);
+
 void getPeerInput();
 void sendRequest(const char* host, int port);
 void disconnectPeer();
@@ -34,18 +37,16 @@ int main(int argc, char* argv[]) {
 }
 
 int initPeer(const char* host, int port) {
-    struct sockaddr_in server;
-    struct sockaddr_in peer;
-    int sdServer;
-    int sdPeer;
-
     // connect to SERVER
+    struct sockaddr_in server;
+    int sdServer;
+
     if((sdServer = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("[PEER] Error: socket()");
 		return errno;
     }
 
-    printf("[PEER] sdServer = %d\n", sdPeer);
+    printf("[PEER] sdServer = %d\n", sdServer);
 
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr(host);
@@ -53,11 +54,24 @@ int initPeer(const char* host, int port) {
 
     if(connect(sdServer, (struct sockaddr*) &server, sizeof(server))) {
         close(sdServer);
-        perror("[PEER] Error: connect()\n");
+        perror("[PEER] Error: connect()");
         return errno;
     }
 
+    return sdServer;
+}
+
+int createPeerServer() {
+    // IP address and port number
+    char host[20];
+    int port;
+
+    getIPandPort(host, port);
+
     // PEER
+    struct sockaddr_in peer;
+    int sdPeer;
+
     if((sdPeer = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("[PEER] Error: socket()");
         return errno;
@@ -66,14 +80,41 @@ int initPeer(const char* host, int port) {
     int on = 1;
 	setsockopt(sdPeer, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 
+    bzero(&peer, sizeof(peer));
+
     printf("[PEER] sdPeer = %d\n", sdPeer);
 
     peer.sin_family = AF_INET;
-    peer.sin_addr.s_addr = htonl(INADDR_ANY);
+    peer.sin_addr.s_addr = inet_addr(LOCALHOST);
     peer.sin_port = htons(port);
 
     if(bind(sdPeer, (struct sockaddr*) &peer, sizeof(peer)) == -1) {
         perror("[PEER] Error: bind()");
+        return errno;
+    }
+
+    return sdPeer;
+}
+
+int connectToPeer(const char* host, int port) {
+    // connect to PEER
+    struct sockaddr_in peer;
+    int sdPeer;
+
+    if((sdPeer = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        perror("[PEER] Error: socket()");
+		return errno;
+    }
+
+    printf("[PEER] sdPeer = %d\n", sdPeer);
+
+    peer.sin_family = AF_INET;
+    peer.sin_addr.s_addr = inet_addr(host);
+    peer.sin_port = htons(port);
+
+    if(connect(sdPeer, (struct sockaddr*) &peer, sizeof(peer))) {
+        close(sdPeer);
+        perror("[PEER] Error: connect()");
         return errno;
     }
 
