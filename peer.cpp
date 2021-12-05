@@ -12,9 +12,9 @@
 
 extern int errno;
 
-int initPeer(const char* host, int port);
-int createPeerServer();
-int connectToPeer(const char* host, int port);
+int initPeer(const char* host, int port);       // connect peer to central server
+int createPeerServer();                         // create peer server
+int connectToPeer(const char* host, int port);  // connect peer to other peer
 
 void getPeerInput();
 void sendRequest(const char* host, int port);
@@ -22,22 +22,20 @@ void disconnectPeer();
 
 int main(int argc, char* argv[]) {
     printf("******** Welcome dear peer! ********\n");
-
+    
     char host[20];
 	int port;
-    
     getIPandPort(host, port);
-    initPeer(host, port);
 
     getPeerInput();
+    // int sd = initPeer(host, port);
     
     // sendRequest(host, port);
     
     return 0;
 }
 
-int initPeer(const char* host, int port) {
-    // connect to SERVER
+int initPeer(const char* host, int port) { // connect to SERVER
     struct sockaddr_in server;
     int sdServer;
 
@@ -52,7 +50,7 @@ int initPeer(const char* host, int port) {
     server.sin_addr.s_addr = inet_addr(host);
     server.sin_port = htons(port);
 
-    if(connect(sdServer, (struct sockaddr*) &server, sizeof(server))) {
+    if(connect(sdServer, (struct sockaddr*) &server, sizeof(server)) == -1) {
         close(sdServer);
         perror("[PEER] Error: connect()");
         return errno;
@@ -97,7 +95,6 @@ int createPeerServer() {
 }
 
 int connectToPeer(const char* host, int port) {
-    // connect to PEER
     struct sockaddr_in peer;
     int sdPeer;
 
@@ -113,7 +110,7 @@ int connectToPeer(const char* host, int port) {
     peer.sin_port = htons(port);
 
     if(connect(sdPeer, (struct sockaddr*) &peer, sizeof(peer))) {
-        close(sdPeer);
+        // close(sdPeer);
         perror("[PEER] Error: connect()");
         return errno;
     }
@@ -132,7 +129,23 @@ void getPeerInput() {
         scanf("%d", &option);
     }
 
-    if(option == 1) searchFile();
+    if(option == 1) {
+        char filename[100];
+        
+        printf("Search the file you want to download: ");
+        do {
+            fflush(stdout);
+            read(0, filename, 100);
+        } while(filename[0] == '\n');
+
+        for(int i = 0; i < strlen(filename); i++)
+            if(filename[i] == '\n') {
+                filename[i] = '\0';
+                break;
+            }
+
+        searchFile(filename);
+    }
     else if(option == 2) uploadFile();
     else disconnectPeer();
 }

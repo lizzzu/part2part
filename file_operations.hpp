@@ -1,8 +1,8 @@
 #ifndef FILE_OPERATIONS_H
 #define FILE_OPERATIONS_H
 
-void searchFile() {
-    printf("[[[searchFile]]]\n");
+void searchFile(const char* filename) {
+    printf("Filename: %s\n", filename);
 }
 
 void downloadFile() {

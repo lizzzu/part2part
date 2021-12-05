@@ -21,10 +21,19 @@ void runServer(const char* host, int port);
 char* conv_addr(struct sockaddr_in address);
 int sayHello(int fd);
 
+static void* treat(void *);
+void answerRequest(void *);
+
+struct thData {
+	int idThread;
+	int cl;
+	int port;
+	char host[20];
+} database;
+
 int main(int argc, char* argv[]) {
 	char host[20];
 	int port;
-
 	getIPandPort(host, port);
 
 	pthread_t th[MAX_THREADS];
