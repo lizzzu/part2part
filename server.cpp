@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <signal.h>
+#include <pthread.h>
 
 #include "validation.hpp"
 
@@ -15,28 +17,21 @@
 
 extern int errno;
 
+typedef struct thData {
+	int idThread;
+	int cl;
+} thData;
+
 int createServer(const char* host, int port);
 void runServer(const char* host, int port);
 
-char* conv_addr(struct sockaddr_in address);
-int sayHello(int fd);
-
 static void* treat(void *);
 void answerRequest(void *);
-
-struct thData {
-	int idThread;
-	int cl;
-	int port;
-	char host[20];
-} database;
 
 int main(int argc, char* argv[]) {
 	char host[20];
 	int port;
 	getIPandPort(host, port);
-
-	pthread_t th[MAX_THREADS];
 
 	runServer(host, port);
 
@@ -70,18 +65,10 @@ int createServer(const char* host, int port) {
 }
 
 void runServer(const char* host, int port) {
+	pthread_t th[MAX_THREADS];
+
 	struct sockaddr_in from;
 	bzero(&from, sizeof(from));
-
-	struct timeval tv;
-
-	fd_set readfds;
-	fd_set actfds;
-	
-	int client;
-	int fd;
-	int nfds;
-	unsigned int len;
 
 	int sd = createServer(host, port);
 	printf("[SERVER] sd = %d\n", sd);
@@ -96,93 +83,80 @@ void runServer(const char* host, int port) {
 		exit(EXIT_FAILURE);
 	}
 
-	FD_ZERO(&actfds);
-	FD_SET(sd, &actfds);
-
-	tv.tv_sec = 1;
-	tv.tv_usec = 0;
+	unsigned int i = 0;
 	
-	nfds = sd;
-
-	printf("[SERVER] Waiting on port %d...\n", port);
-	fflush(stdout);
-
 	while(1) {
-		bcopy((char *) &actfds, (char *) &readfds, sizeof (readfds));
+		int client;
+        thData *td;
+		unsigned int length = sizeof(from);
 
-		if(select(nfds + 1, &readfds, NULL, NULL, &tv) < 0) {
-			perror("[SERVER] Error: select()\n");
-			exit(EXIT_FAILURE);
-		}
+        printf("[SERVER] Waiting on port %d...\n", port);
+        fflush(stdout);
 
-		if(FD_ISSET(sd, &readfds)) {
-			len = sizeof(from);
-			bzero(&from, sizeof(from));
+        if((client = accept(sd, (struct sockaddr*) &from, &length)) == -1) {
+            perror("[SERVER] Error: accept()\n");
+            continue;
+        }
 
-			client = accept(sd, (struct sockaddr*) &from, &len);
+        td = (struct thData*) malloc(sizeof(struct thData));	
+        td->idThread = i++;
+        td->cl = client;
 
-			if (client < 0) {
-				perror("[SERVER] Error: accept()\n");
-				continue;
-			}
-
-			if (nfds < client)
-				nfds = client;
-					
-			FD_SET(client, &actfds);
-
-			printf("[SERVER] A client has connected: descriptor %d, address %s\n", client, conv_addr(from));
-			fflush(stdout);
-		}
-
-		for(fd = 0; fd <= nfds; fd++) {
-			if (fd != sd && FD_ISSET(fd, &readfds))
-				if (sayHello(fd)) {
-					printf("[SERVER] The client %d has disconnected\n", fd);
-					fflush(stdout);
-					close(fd);
-					FD_CLR(fd, &actfds);
-				}
-		}
+        pthread_create(&th[i], NULL, &treat, td);
 	}
 }
 
-char* conv_addr(struct sockaddr_in address) {
-	static char str[25];
-	char port[7];
+static void* treat(void *arg) {
+	struct thData tdL;
+    tdL = *((struct thData*) arg);	
+    
+    printf("[Thread %d] Waiting for the message...\n", tdL.idThread);
+    fflush(stdout);		 
+    pthread_detach(pthread_self());		
+    answerRequest((struct thData*) arg);
 
-	strcpy(str, inet_ntoa(address.sin_addr));
-	bzero(port, 7);
-
-	sprintf(port, ":%d", ntohs(address.sin_port));	
-	strcat(str, port);
-
-	return (str);
+    close((intptr_t) arg);
+    return(NULL);
 }
 
-int sayHello(int fd) {
-	char buffer[100];
-	int bytes;
+void answerRequest(void *arg) {
 	char msg[100];
-	char msgrasp[100] = " ";
+	int i = 0;
+	struct thData tdL; 
+	tdL = *((struct thData*) arg);
 
-	bytes = read(fd, msg, sizeof(buffer));
-	if(bytes < 0) {
-		perror("[SERVER] Error: read() from client\n");
-		return 0;
-	}
-	printf("[SERVER] The message has been received: %s\n", msg);
-		
-	bzero(msgrasp, 100);
-	strcat(msgrasp, "Hello ");
-	strcat(msgrasp, msg);
-	
-	printf("[SERVER] Sending back the message... %s\n", msgrasp);
-		
-	if(bytes && write(fd, msgrasp, bytes) < 0) {
-		perror("[SERVER] Error: write() to client.\n");
-		return 0;
+	if(read(tdL.cl, msg, 100) <= 0) {
+        printf("[Thread %d]\n", tdL.idThread);
+		perror("Error: read() from client\n");	
 	}
 	
-	return bytes;
+	printf("[Thread %d] The message has been received: %s\n", tdL.idThread, msg);
+
+	char* p = strtok(msg, "*");
+	if(strcmp(p, "search") == 0) {
+		// p = strtok(NULL, "");
+		strcpy(msg, msg + strlen("search") + 1);
+		printf("[Thread %d] The client wants to search for: %s\n", tdL.idThread, p);
+	}
+	else if(strcmp(p, "download") == 0) {
+		// p = strtok(NULL, " ");
+		strcpy(msg, msg + strlen("download") + 1);
+		printf("[Thread %d] The client wants to download from: %s\n", tdL.idThread, p);
+	}
+	else if(strcmp(p, "upload") == 0) {
+		// p = strtok(NULL, " ");
+		strcpy(msg, msg + strlen("upload") + 1);
+		printf("[Thread %d] The client want to upload from: %s\n", tdL.idThread, p);
+	}
+	else if(strcmp(p, "exit") == 0) {
+		strcpy(msg, "Peer disconnected");
+		printf("[Thread %d] The client disconnected from the server\n", tdL.idThread);
+	}
+
+	if(write(tdL.cl, msg, sizeof(msg)) <= 0) {
+		printf("[Thread %d] ", tdL.idThread);
+		perror("[Thread] Error: write() to client\n");
+	}
+	else
+		printf ("[Thread %d] The message has been succesfully sent\n", tdL.idThread);	
 }

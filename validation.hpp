@@ -69,4 +69,8 @@ void getIPandPort(char* host, int &port) {
     printf("\n");
 }
 
+bool validatePath(const char* path) {
+    return true;
+}
+
 #endif // VALIDATION_H
