@@ -9,11 +9,13 @@
 #include <string.h>
 #include <signal.h>
 #include <pthread.h>
+#include <sqlite3.h>
 
 #include "validation.hpp"
+// #include "database_functions.hpp"
 
-#define MAX_CONNECTIONS 20
-#define MAX_THREADS 100
+#define CONNECTIONS 20
+#define THREADS 100
 
 extern int errno;
 
@@ -21,6 +23,18 @@ typedef struct thData {
 	int idThread;
 	int cl;
 } thData;
+
+typedef struct Users {
+	int idUser;
+	char IPaddr[20];
+	int port;
+	int nrFiles = 0;
+	char file[20][100];
+	char path[20][1000];
+} Users;
+Users* usr = (struct Users*)malloc(sizeof(struct Users) * CONNECTIONS);
+
+sqlite3* db;
 
 int createServer(const char* host, int port);
 void runServer(const char* host, int port);
@@ -65,98 +79,138 @@ int createServer(const char* host, int port) {
 }
 
 void runServer(const char* host, int port) {
-	pthread_t th[MAX_THREADS];
-
 	struct sockaddr_in from;
 	bzero(&from, sizeof(from));
 
 	int sd = createServer(host, port);
-	printf("[SERVER] sd = %d\n", sd);
 
 	if(sd == errno) {
 		printf("[SERVER] Cannot create server\n");
 		exit(1);
 	}
 
-	if(listen(sd, MAX_CONNECTIONS) == -1) {
+	if(listen(sd, CONNECTIONS) == -1) {
 		perror("[SERVER] Error: listen()");
 		exit(EXIT_FAILURE);
 	}
 
+	pthread_t th[THREADS];
+	thData* td = (struct thData*)malloc(sizeof(struct thData) * THREADS);
 	unsigned int i = 0;
 	
 	while(1) {
 		int client;
-        thData *td;
 		unsigned int length = sizeof(from);
 
         printf("[SERVER] Waiting on port %d...\n", port);
         fflush(stdout);
 
-        if((client = accept(sd, (struct sockaddr*) &from, &length)) == -1) {
+        if((client = accept(sd, (struct sockaddr*)&from, &length)) == -1) {
             perror("[SERVER] Error: accept()\n");
             continue;
         }
 
-        td = (struct thData*) malloc(sizeof(struct thData));	
-        td->idThread = i++;
-        td->cl = client;
+        td[i].idThread = i;
+        td[i].cl = client;
 
-        pthread_create(&th[i], NULL, &treat, td);
+		pthread_create(&th[i], NULL, &treat, td + i);
+		i++;
 	}
 }
 
-static void* treat(void *arg) {
-	struct thData tdL;
-    tdL = *((struct thData*) arg);	
-    
-    printf("[Thread %d] Waiting for the message...\n", tdL.idThread);
-    fflush(stdout);		 
-    pthread_detach(pthread_self());		
-    answerRequest((struct thData*) arg);
+static void* treat(void* arg) {
+	struct thData tdL = *((struct thData*)arg);
 
-    close((intptr_t) arg);
+	printf("[Thread %d] Waiting for the message...\n", tdL.idThread);
+	fflush(stdout);
+	pthread_detach(pthread_self());	
+	answerRequest((struct thData*)arg);
+
+    close((intptr_t)arg);
     return(NULL);
 }
 
-void answerRequest(void *arg) {
-	char msg[100];
-	int i = 0;
-	struct thData tdL; 
-	tdL = *((struct thData*) arg);
-
-	if(read(tdL.cl, msg, 100) <= 0) {
-        printf("[Thread %d]\n", tdL.idThread);
-		perror("Error: read() from client\n");	
-	}
+void answerRequest(void* arg) {
+	struct thData tdL = *((struct thData*)arg);
+	int cl = tdL.cl;
 	
-	printf("[Thread %d] The message has been received: %s\n", tdL.idThread, msg);
+	bool run = true;
 
-	char* p = strtok(msg, "*");
-	if(strcmp(p, "search") == 0) {
-		// p = strtok(NULL, "");
-		strcpy(msg, msg + strlen("search") + 1);
-		printf("[Thread %d] The client wants to search for: %s\n", tdL.idThread, p);
-	}
-	else if(strcmp(p, "download") == 0) {
-		// p = strtok(NULL, " ");
-		strcpy(msg, msg + strlen("download") + 1);
-		printf("[Thread %d] The client wants to download from: %s\n", tdL.idThread, p);
-	}
-	else if(strcmp(p, "upload") == 0) {
-		// p = strtok(NULL, " ");
-		strcpy(msg, msg + strlen("upload") + 1);
-		printf("[Thread %d] The client want to upload from: %s\n", tdL.idThread, p);
-	}
-	else if(strcmp(p, "exit") == 0) {
-		strcpy(msg, "Peer disconnected");
-		printf("[Thread %d] The client disconnected from the server\n", tdL.idThread);
-	}
+	do {
+		char msg[100] = "";
+		int i = 0;
 
-	if(write(tdL.cl, msg, sizeof(msg)) <= 0) {
-		printf("[Thread %d] ", tdL.idThread);
-		perror("[Thread] Error: write() to client\n");
-	}
-	else
-		printf ("[Thread %d] The message has been succesfully sent\n", tdL.idThread);	
+		if(read(tdL.cl, msg, 100) <= 0) {
+			printf("[Thread %d]\n", tdL.idThread);
+			perror("Error: read() from client\n");	
+		}
+		
+		printf("[Thread %d] The message has been received: %s\n", tdL.idThread, msg);
+
+		char* p = strtok(msg, "*");
+
+		switch(p[0]) {
+		case 's':
+			strcpy(msg, msg + strlen(p) + 1);
+			printf("[Thread %d] The client wants to search for: %s\n", tdL.idThread, p);
+
+			if(write(tdL.cl, msg, sizeof(msg)) <= 0) {
+				printf("[Thread %d] ", tdL.idThread);
+				perror("[Thread] Error: write() to client\n");
+			}
+			else
+				printf("[Thread %d] The message has been succesfully sent\n", tdL.idThread);
+			
+			break;
+		
+		case 'd':
+			strcpy(msg, msg + strlen(p) + 1);
+			printf("[Thread %d] The client wants to download from: %s\n", tdL.idThread, p);
+
+			break;
+
+		case 'u':
+			p = strtok(NULL, "*");
+			strcpy(usr[cl].IPaddr, p);
+
+			p = strtok(NULL, "*");
+			usr[cl].port = atoi(p);
+
+			p = strtok(NULL, "\0");
+			strcpy(msg, p);
+			
+			printf("[Thread %d] The client %d (IP address: %s | Port: %d) wants to upload: %s\n", 
+				tdL.idThread, usr[cl].idUser, usr[cl].IPaddr, usr[cl].port, msg);
+
+			usr[cl].idUser = tdL.cl;
+			strcpy(usr[cl].path[usr[cl].nrFiles], msg);
+			strcpy(usr[cl].file[usr[cl].nrFiles], strrchr(msg, '/') + 1);
+
+			printf("User ID: %d\n", usr[cl].idUser);
+			printf("Nr of files: %d\n", usr[cl].nrFiles + 1);
+			for(int f = 0; f <= usr[cl].nrFiles; f++)
+				printf("Shared file: %20s | Path: %s\n", usr[cl].file[f], usr[cl].path[f]);
+
+			usr[cl].nrFiles++;
+
+			if(write(cl, msg, sizeof(msg)) <= 0) {
+				printf("[Thread %d] ", tdL.idThread);
+				perror("[Thread] Error: write() to client\n");
+			}
+			else
+				printf("[Thread %d] The message has been succesfully sent\n", tdL.idThread);
+
+			break;
+		
+		case 'e':
+			printf("[Thread %d] The client disconnected from the server\n", tdL.idThread);
+
+			run = false;
+			break;
+		
+		default:
+			break;
+		}
+
+	} while(run == true);
 }

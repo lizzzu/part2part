@@ -24,7 +24,7 @@ void disconnectPeer(int sd);
 // file operations
 void searchFile(int sd, const char* filename);
 void downloadFile();
-void uploadFile(int sd, const char* path);
+void uploadFile(int sd, const char* path, const char* host, const char* port);
 
 int main(int argc, char* argv[]) {
     printf("******** Welcome dear peer! ********\n");
@@ -51,8 +51,6 @@ int initPeer(const char* host, int port) {
         perror("[PEER] Error: socket()");
 		return errno;
     }
-
-    printf("[PEER] sdServer = %d\n", sdServer);
 
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr(host);
@@ -129,7 +127,7 @@ int initPeer(const char* host, int port) {
 void getPeerInput(int sd) {
     int option;
 
-    printf("1 - Search file\n2 - Upload files\n3 - Exit\n> ");
+    printf("\n1 - Search file\n2 - Upload files\n3 - Exit\n> ");
     scanf("%d", &option);
 
     while(option < 1 || option > 3) {
@@ -191,7 +189,7 @@ void getPeerInput(int sd) {
             exit(EXIT_FAILURE);
         }
         
-        uploadFile(sd, path);
+        uploadFile(sd, path, IPaddr, p);
     }
     else disconnectPeer(sd);
 }
@@ -249,10 +247,14 @@ void downloadFile() {
     printf("[[[downloadFile]]]\n");
 }
 
-void uploadFile(int sd, const char* path) {
+void uploadFile(int sd, const char* path, const char* host, const char* port) {
     printf("Path: %s\n", path);
 
     char msg[120] = "upload*";
+    strcat(msg, host);
+    strcat(msg, "*");
+    strcat(msg, port);
+    strcat(msg, "*");
     strcat(msg, path);
     printf("[PEER] msg = %s\n", msg);
 
@@ -273,8 +275,6 @@ void uploadFile(int sd, const char* path) {
 
 void disconnectPeer(int sd) {
     char msg[120] = "exit*";
-    printf("[PEER] msg = %s\n", msg);
-
     int msgsize = strlen(msg);
 
     if(write(sd, msg, msgsize) <= 0) {
@@ -282,10 +282,6 @@ void disconnectPeer(int sd) {
         exit(EXIT_FAILURE);
     }
 
-    if(read(sd, msg, msgsize) < 0) {
-        perror("[PEER] Error: read() from server");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("[PEER] Received message: %s\n", msg);
+    printf("[PEER] Peer disconnected");
+    exit(1);
 }
