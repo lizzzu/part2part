@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "validation.hpp"
-// #include "file_operations.hpp"
+#include "file_operations.hpp"
 
 extern int errno;
 
@@ -20,11 +20,6 @@ int connectToPeer(const char* host, int port);  // connect peer to other peer
 void getPeerInput(int sd);
 void sendRequest(const char* host, int port);
 void disconnectPeer(int sd);
-
-// file operations
-void searchFile(int sd, const char* filename);
-void downloadFile();
-void uploadFile(int sd, const char* path, const char* host, const char* port);
 
 int main(int argc, char* argv[]) {
     printf("******** Welcome dear peer! ********\n");
@@ -220,58 +215,6 @@ void getPeerInput(int sd) {
 
 //     close(sd);
 // }
-
-void searchFile(int sd, const char* filename) {
-    printf("[PEER] Filename: %s\n", filename);
-
-    char msg[120] = "search*";
-    strcat(msg, filename);
-    printf("[PEER] msg = %s\n", msg);
-
-    int msgsize = strlen(msg);
-
-    if(write(sd, msg, msgsize) <= 0) {
-        perror("[PEER] Error: write() to server");
-        exit(EXIT_FAILURE);
-    }
-
-    if(read(sd, msg, msgsize) < 0) {
-        perror("[PEER] Error: read() from server");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("[PEER] Received message: %s\n", msg);
-}
-
-void downloadFile() {
-    printf("[[[downloadFile]]]\n");
-}
-
-void uploadFile(int sd, const char* path, const char* host, const char* port) {
-    printf("Path: %s\n", path);
-
-    char msg[120] = "upload*";
-    strcat(msg, host);
-    strcat(msg, "*");
-    strcat(msg, port);
-    strcat(msg, "*");
-    strcat(msg, path);
-    printf("[PEER] msg = %s\n", msg);
-
-    int msgsize = strlen(msg);
-
-    if(write(sd, msg, msgsize) <= 0) {
-        perror("[PEER] Error: write() to server");
-        exit(EXIT_FAILURE);
-    }
-
-    if(read(sd, msg, msgsize) < 0) {
-        perror("[PEER] Error: read() from server");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("[PEER] Received message: %s\n", msg);
-}
 
 void disconnectPeer(int sd) {
     char msg[120] = "exit*";
