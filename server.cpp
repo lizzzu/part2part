@@ -25,7 +25,7 @@ typedef struct thData {
 } thData;
 
 typedef struct Users {
-	int idUser;
+	int idUser = -1;
 	char IPaddr[20];
 	int port;
 	int nrFiles = 0;
@@ -34,8 +34,6 @@ typedef struct Users {
 } Users;
 Users* usr = (struct Users*)malloc(sizeof(struct Users) * CONNECTIONS);
 int nrUsers = 0;
-
-sqlite3* db;
 
 int createServer(const char* host, int port);
 void runServer(const char* host, int port);
@@ -161,12 +159,12 @@ void answerRequest(void* arg) {
 
 			for(int i = 1; i <= nrUsers; i++) {
 				for(int j = 1; j <= usr[i].nrFiles; j++) {
-					if(strstr(usr[i].file[j], p)) {
+					if(strstr(usr[i].file[j], p) && usr[i].idUser != cl) {
 						countFiles++;
 						foundUsers[countFiles].idUser = i;
-						strcpy(foundUsers[countFiles].IPaddr, usr[i].IPaddr);
-						foundUsers[countFiles].port = usr[i].port;
 						foundUsers[countFiles].nrFiles = 1;
+						foundUsers[countFiles].port = usr[i].port;
+						strcpy(foundUsers[countFiles].IPaddr, usr[i].IPaddr);
 						strcpy(foundUsers[countFiles].file[0], usr[i].file[j]);
 						strcpy(foundUsers[countFiles].path[0], usr[i].path[j]);
 						foundFiles[i][j] = 1;
@@ -179,12 +177,12 @@ void answerRequest(void* arg) {
 				perror("[Thread] Error: write() to client");
 			}
 			else
-				printf("[Thread %d] The message has been succesfully sent\n", tdL.idThread);
+				printf("[Thread %d] The number of files has been succesfully sent\n", tdL.idThread);
 
 			for(int i = 1; i <= countFiles; i++) {
-				sprintf(msg, "Peer ID: %d\nIP address: %s\nPort: %d\nShared file: %s\nPath: %s", 
-					foundUsers[i].idUser, foundUsers[i].IPaddr, foundUsers[i].port, foundUsers[i].file[0], foundUsers[i].path[0]);
-				int msgsize = strlen(msg);
+				char send_msg[1200];
+				sprintf(send_msg, "%d*%s*%d*%s*", foundUsers[i].idUser, foundUsers[i].IPaddr, foundUsers[i].port, foundUsers[i].path[0]);
+				int msgsize = sizeof(send_msg);
 
 				int currentFile;
 				if(read(tdL.cl, &currentFile, sizeof(int)) <= 0) {
@@ -196,7 +194,7 @@ void answerRequest(void* arg) {
 					printf("currentFile = %d | i = %d\n", currentFile, i);
 				}
 				
-				if(write(tdL.cl, msg, msgsize) <= 0) {
+				if(write(tdL.cl, send_msg, msgsize) <= 0) {
 					printf("[Thread %d] ", tdL.idThread);
 					perror("[Thread] Error: write() to client\n");
 				}
@@ -220,7 +218,7 @@ void answerRequest(void* arg) {
 			usr[cl].port = atoi(p);
 
 			p = strtok(NULL, "\0");			
-			printf("[Thread %d] The client %d (IP address: %s | Port: %d) wants to upload: %s\n", 
+			printf("\n[Thread %d] The client %d (IP address: %s | Port: %d) wants to upload: %s\n", 
 				tdL.idThread, usr[cl].idUser, usr[cl].IPaddr, usr[cl].port, p);
 
 			usr[cl].nrFiles++;
@@ -236,11 +234,10 @@ void answerRequest(void* arg) {
 			for(int f = 1; f <= usr[cl].nrFiles; f++)
 				printf("Shared file: %20s | Path: %s\n", usr[cl].file[f], usr[cl].path[f]);
 
-
-			sprintf(msg, "Uploading: %s", p);
-			int msgsize = strlen(msg);
-			printf("msg = %s\n", msg);
-			if(write(tdL.cl, msg, msgsize) <= 0) {
+			char send_msg[100];
+			sprintf(send_msg, "[ID = %d] Uploading: %s\n", usr[cl].idUser, p);
+			int msgsize = sizeof(send_msg);
+			if(write(tdL.cl, send_msg, msgsize) <= 0) {
 				printf("[Thread %d] ", tdL.idThread);
 				perror("[Thread] Error: write() to client");
 			}
@@ -250,7 +247,7 @@ void answerRequest(void* arg) {
 			break;
 		}
 		case 'e': {
-			printf("[Thread %d] The client %d has disconnected from the server\n", tdL.idThread, usr[cl].idUser);
+			printf("[Thread %d] The client %d disconnected from the server\n", tdL.idThread, usr[cl].idUser);
 
 			usr[cl].idUser = -1;
 			usr[cl].nrFiles = 0;
