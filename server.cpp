@@ -14,9 +14,6 @@
 #include "validation.hpp"
 // #include "database_functions.hpp"
 
-#define CONNECTIONS 20
-#define THREADS 100
-
 extern int errno;
 
 typedef struct thData {
@@ -26,7 +23,7 @@ typedef struct thData {
 
 typedef struct Users {
 	int idUser = -1;
-	char IPaddr[20];
+	char host[20];
 	int port;
 	int nrFiles = 0;
 	char file[20][100];
@@ -35,7 +32,6 @@ typedef struct Users {
 Users* usr = (struct Users*)malloc(sizeof(struct Users) * CONNECTIONS);
 int nrUsers = 0;
 
-int createServer(const char* host, int port);
 void runServer(const char* host, int port);
 
 static void* treat(void *);
@@ -51,19 +47,22 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-int createServer(const char* host, int port) {
+void runServer(const char* host, int port) {
 	struct sockaddr_in server;
+	struct sockaddr_in from;
+
 	int sd;
 
 	if((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		perror("[SERVER] Error: socket()");
-		return errno;
+		exit(EXIT_FAILURE);
 	}
 
 	int on = 1;
 	setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 
 	bzero(&server, sizeof(server));
+	bzero(&from, sizeof(from));
 
 	server.sin_family = AF_INET;
 	server.sin_addr.s_addr = inet_addr(host);
@@ -71,21 +70,7 @@ int createServer(const char* host, int port) {
 
 	if(bind(sd, (struct sockaddr*) &server, sizeof(server)) == -1) {
 		perror("[SERVER] Error: bind()");
-		return errno;
-	}
-
-	return sd;
-}
-
-void runServer(const char* host, int port) {
-	struct sockaddr_in from;
-	bzero(&from, sizeof(from));
-
-	int sd = createServer(host, port);
-
-	if(sd == errno) {
-		printf("[SERVER] Cannot create server\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	if(listen(sd, CONNECTIONS) == -1) {
@@ -164,7 +149,7 @@ void answerRequest(void* arg) {
 						foundUsers[countFiles].idUser = i;
 						foundUsers[countFiles].nrFiles = 1;
 						foundUsers[countFiles].port = usr[i].port;
-						strcpy(foundUsers[countFiles].IPaddr, usr[i].IPaddr);
+						strcpy(foundUsers[countFiles].host, usr[i].host);
 						strcpy(foundUsers[countFiles].file[0], usr[i].file[j]);
 						strcpy(foundUsers[countFiles].path[0], usr[i].path[j]);
 						foundFiles[i][j] = 1;
@@ -181,7 +166,7 @@ void answerRequest(void* arg) {
 
 			for(int i = 1; i <= countFiles; i++) {
 				char send_msg[1200];
-				sprintf(send_msg, "%d*%s*%d*%s*", foundUsers[i].idUser, foundUsers[i].IPaddr, foundUsers[i].port, foundUsers[i].path[0]);
+				sprintf(send_msg, "%d*%s*%d*%s*", foundUsers[i].idUser, foundUsers[i].host, foundUsers[i].port, foundUsers[i].path[0]);
 				int msgsize = sizeof(send_msg);
 
 				int currentFile;
@@ -199,7 +184,7 @@ void answerRequest(void* arg) {
 					perror("[Thread] Error: write() to client\n");
 				}
 				else
-					printf("[Thread %d] The message has been succesfully sent\n", tdL.idThread);
+					printf("[Thread %d] The message %s has been succesfully sent\n", tdL.idThread, send_msg);
 			}
 
 			break;
@@ -212,14 +197,14 @@ void answerRequest(void* arg) {
 		}
 		case 'u': {
 			p = strtok(NULL, "*");
-			strcpy(usr[cl].IPaddr, p);
+			strcpy(usr[cl].host, p);
 
 			p = strtok(NULL, "*");
 			usr[cl].port = atoi(p);
 
-			p = strtok(NULL, "\0");			
-			printf("\n[Thread %d] The client %d (IP address: %s | Port: %d) wants to upload: %s\n", 
-				tdL.idThread, usr[cl].idUser, usr[cl].IPaddr, usr[cl].port, p);
+			p = strtok(NULL, "\0");
+			printf("\n[Thread %d] The client %d (Host: %s | Port: %d) wants to upload: %s\n", 
+				tdL.idThread, usr[cl].idUser, usr[cl].host, usr[cl].port, p);
 
 			usr[cl].nrFiles++;
 			usr[cl].idUser = cl;
@@ -242,12 +227,12 @@ void answerRequest(void* arg) {
 				perror("[Thread] Error: write() to client");
 			}
 			else
-				printf("[Thread %d] The message has been succesfully sent\n", tdL.idThread);
+				printf("[Thread %d] The message %s has been succesfully sent\n", tdL.idThread, send_msg);
 
 			break;
 		}
 		case 'e': {
-			printf("[Thread %d] The client %d disconnected from the server\n", tdL.idThread, usr[cl].idUser);
+			printf("[Thread %d] The client %d disconnected from the server\n", tdL.idThread, cl);
 
 			usr[cl].idUser = -1;
 			usr[cl].nrFiles = 0;

@@ -5,6 +5,10 @@
 #include <cctype>
 
 #define LOCALHOST "127.0.0.1"
+#define DOWNLOAD_PATH "./downloads"
+#define CONNECTIONS 20
+#define THREADS 100
+#define SIZE 4096
 
 bool validateIPaddr(const char* host) {
     if(strlen(host) == 1 && host[0] == '0')

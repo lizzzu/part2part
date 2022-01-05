@@ -7,3 +7,8 @@ cli
 serv
 
 test.cpp
+
+dragos_client.c
+dragos_client
+dragos_server.c
+dragos_server
