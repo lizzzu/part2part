@@ -1,10 +1,12 @@
 peer
 server
 
-cli.c
-serv.c
-cli
-serv
+./flower.jpg
+./flower.txt
+./folder/crow.docx
+./folder/movie.mp4
+
+./downloads
 
 test.cpp
 
