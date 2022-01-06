@@ -209,13 +209,10 @@ void answerRequest(void* arg) {
 			usr[cl].nrFiles++;
 			usr[cl].idUser = cl;
 			strcpy(usr[cl].path[usr[cl].nrFiles], p);
-			if(strrchr(p, '/'))
-				strcpy(usr[cl].file[usr[cl].nrFiles], strrchr(p, '/') + 1);
-			else
-				strcpy(usr[cl].file[usr[cl].nrFiles], strrchr(p, '\\') + 1);
-
+			strcpy(usr[cl].file[usr[cl].nrFiles], strrchr(p, '/') + 1);
+			
 			printf("User ID: %d\n", usr[cl].idUser);
-			printf("Nr of files: %d\n", usr[cl].nrFiles);
+			printf("Number of files: %d\n", usr[cl].nrFiles);
 			for(int f = 1; f <= usr[cl].nrFiles; f++)
 				printf("Shared file: %20s | Path: %s\n", usr[cl].file[f], usr[cl].path[f]);
 

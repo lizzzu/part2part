@@ -1,4 +1,5 @@
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <errno.h>
 #include <stdio.h>
@@ -6,9 +7,9 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "validation.hpp"
-// #include "file_operations.hpp"
 
 extern int errno;
 
@@ -71,14 +72,14 @@ int initPeer(const char* host, int port) {
     return sdServer;
 }
 
-void runPeerServer(const char* host, int port) {
+void runPeerServer(const char* filepath, const char* host, int port) {
 	struct sockaddr_in peerServer;
     struct sockaddr_in from;
 
     int sdPeer;
 
     if((sdPeer = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        perror("[PEER] Error: socket()");
+        perror("[PEER_SERVER] Error: socket()");
         exit(EXIT_FAILURE);
     }
 
@@ -93,16 +94,55 @@ void runPeerServer(const char* host, int port) {
     peerServer.sin_port = htons(port);
 
     if(bind(sdPeer, (struct sockaddr*)&peerServer, sizeof(peerServer)) == -1) {
-        perror("[PEER] Error: bind()");
+        perror("[PEER_SERVER] Error: bind()");
         exit(EXIT_FAILURE);
     }
 
 	if(listen(sdPeer, CONNECTIONS) == -1) {
-		perror("[PEER] Error: listen()");
+		perror("[PEER_SERVER] Error: listen()");
 		exit(EXIT_FAILURE);
 	}
 
     printf("Listening on port %d...\n", port);
+    fflush(stdout);
+
+    int peer;
+    unsigned int length = sizeof(from);
+    if((peer = accept(sdPeer, (struct sockaddr*)&from, &length)) == -1) {
+        perror("[PEER_SERVER] Error: accept()\n");
+    }
+    
+    // sending the requested file
+    int fd;
+    if((fd = open(filepath, O_RDONLY)) == -1) {
+        close(sdPeer);
+        perror("[PEER_SERVER] Error: open() filepath");
+        exit(EXIT_FAILURE);
+    }
+
+    int nrbytes;
+    char buff[SIZE];
+
+    while(1) {
+        if((nrbytes = read(fd, buff, SIZE)) == -1) {
+            close(fd);
+            perror("[PEER_SERVER] Error: read() from fd");
+            exit(EXIT_FAILURE);
+        }
+
+        if(nrbytes == 0) { 
+            break;
+        }
+
+        if((write(peer, buff, nrbytes)) == -1) {
+            close(peer);
+            perror("[PEER_SERVER] Error: write() to peer");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    close(sdPeer);
+    close(peer);
 }
 
 int connectToPeer(const char* host, int port) {
@@ -118,9 +158,9 @@ int connectToPeer(const char* host, int port) {
     peer.sin_addr.s_addr = inet_addr(host);
     peer.sin_port = htons(port);
 
-    if(connect(sdPeer, (struct sockaddr*)&peer, sizeof(peer))) {
+    if(connect(sdPeer, (struct sockaddr*)&peer, sizeof(peer)) == -1) {
         close(sdPeer);
-        perror("[PEER] Error: connect()");
+        perror("[PEER] Error: connect() to other peer");
         return errno;
     }
 
@@ -172,7 +212,7 @@ void getPeerInput(int sd) {
         int port = atoi(p);
 
         char path[100];
-        printf("Enter the directory path you want to share: ");
+        printf("Enter the file path you want to share: ");
         do {
             fflush(stdout);
             read(0, path, sizeof(path));
@@ -234,7 +274,7 @@ void searchFile(int sd, const char* filename) {
         r = strtok(NULL, "*");
         strcpy(usr[i].IPaddr, r);
         if(usr[i].IPaddr[0] == '0' && strlen(usr[i].IPaddr) == 1)
-            strcpy(usr[i].IPaddr, "localhost");
+            strcpy(usr[i].IPaddr, LOCALHOST);
 
         r = strtok(NULL, "*");
         usr[i].port = atoi(r);
@@ -247,18 +287,28 @@ void searchFile(int sd, const char* filename) {
         printf("------------------------------------\n");
     }
 
-    if(countFiles > 0) {
-        printf("Do you want to download a file? [y/n]\n");
+    if(countFiles > 1) {
+        printf("Do you want to download any file? [y/n]\n");
         char option[2];
         scanf("%s", option);
 
         if(option[0] == 'y' || option[0] == 'Y') {
-             printf("Which one? Enter a number between 1 and %d: ", countFiles);
+            printf("Which one? [1-%d]\n", countFiles);
             int file_number;
             scanf("%d", &file_number);
 
             downloadFile(usr[file_number].IPaddr, usr[file_number].port, usr[file_number].path);
         }
+        else
+            printf("As you wish\n");
+    }
+    else if(countFiles == 1) {
+        printf("Do you want to download the file? [y/n]\n");
+        char option[2];
+        scanf("%s", option);
+
+        if(option[0] == 'y' || option[0] == 'Y')
+            downloadFile(usr[1].IPaddr, usr[1].port, usr[1].path);
         else
             printf("As you wish\n");
     }
@@ -270,7 +320,46 @@ void downloadFile(const char* host, int port, const char* filepath) {
     printf("Downloading %s from... ", filepath);
     printf("Host: %s | Port: %d\n", host, port);
 
-    int sd = connectToPeer(host, port);
+    int sdPeer = connectToPeer(host, port);
+
+    // downloading the file
+    mkdir(DOWNLOAD_PATH, 0777);
+
+    char path[120];
+    char filename[100];
+    strcpy(filename, strrchr(filepath, '/') + 1);
+    sprintf(path, "%s/%s", DOWNLOAD_PATH, filename);
+
+    int fd;
+    if((fd = open(path, O_WRONLY | O_CREAT, 0666)) == -1) {
+        close(sdPeer);
+        perror("[PEER] Error: open() download path");
+        exit(EXIT_FAILURE);
+    }
+
+    int nrbytes;
+    char buff[SIZE];
+
+    while(1) {
+        if((nrbytes = read(sdPeer, buff, SIZE)) == -1) {
+            close(sdPeer);
+            perror("[PEER] Error: read() from peer");
+            exit(EXIT_FAILURE);
+        }
+
+        if(nrbytes == 0) {
+            break;
+        }
+
+        if(write(fd, buff, nrbytes) == -1) {
+            close(fd);
+            perror("[PEER] Error: write() to fd");
+        }
+    }
+
+    printf("Successfully downloaded the file \"%s\"\n", filename);
+
+    close(sdPeer);
 }
 
 void uploadFile(int sd, const char* path, const char* host, int port) {
@@ -307,7 +396,7 @@ void uploadFile(int sd, const char* path, const char* host, int port) {
     char* recv_msg = strtok(msg, "\n");
     printf("%s\n", recv_msg);
 
-    runPeerServer(host, port);
+    runPeerServer(path, host, port);
 }
 
 void disconnectPeer(int sd) {
