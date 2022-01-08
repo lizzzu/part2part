@@ -16,6 +16,7 @@
 
 extern int errno;
 
+
 typedef struct thData {
 	int idThread;
 	int cl;
@@ -29,13 +30,17 @@ typedef struct Users {
 	char file[20][100];
 	char path[20][1000];
 } Users;
+
+
 Users* usr = (struct Users*)malloc(sizeof(struct Users) * CONNECTIONS);
 int nrUsers = 0;
+
 
 void runServer(const char* host, int port);
 
 static void* treat(void *);
 void answerRequest(void *);
+
 
 int main(int argc, char* argv[]) {
 	char host[20];
@@ -107,7 +112,8 @@ static void* treat(void* arg) {
 
 	printf("[Thread %d] Waiting for the message...\n", tdL.idThread);
 	fflush(stdout);
-	pthread_detach(pthread_self());	
+	pthread_detach(pthread_self());
+
 	answerRequest((struct thData*)arg);
 
     close((intptr_t)arg);
@@ -117,6 +123,7 @@ static void* treat(void* arg) {
 void answerRequest(void* arg) {
 	struct thData tdL = *((struct thData*)arg);
 	int cl = ++nrUsers;
+	usr[cl].idUser = cl;
 	
 	bool run = true;
 
@@ -146,12 +153,16 @@ void answerRequest(void* arg) {
 				for(int j = 1; j <= usr[i].nrFiles; j++) {
 					if(strstr(usr[i].file[j], p) && usr[i].idUser != cl) {
 						countFiles++;
+
 						foundUsers[countFiles].idUser = i;
 						foundUsers[countFiles].nrFiles = 1;
+
 						foundUsers[countFiles].port = usr[i].port;
 						strcpy(foundUsers[countFiles].host, usr[i].host);
+
 						strcpy(foundUsers[countFiles].file[0], usr[i].file[j]);
 						strcpy(foundUsers[countFiles].path[0], usr[i].path[j]);
+
 						foundFiles[i][j] = 1;
 					}
 				}
@@ -189,12 +200,6 @@ void answerRequest(void* arg) {
 
 			break;
 		}
-		case 'd': {
-			strcpy(msg, msg + strlen(p) + 1);
-			printf("[Thread %d] The client wants to download from: %s\n", tdL.idThread, p);
-
-			break;
-		}
 		case 'u': {
 			p = strtok(NULL, "*");
 			strcpy(usr[cl].host, p);
@@ -207,7 +212,6 @@ void answerRequest(void* arg) {
 				tdL.idThread, usr[cl].idUser, usr[cl].host, usr[cl].port, p);
 
 			usr[cl].nrFiles++;
-			usr[cl].idUser = cl;
 			strcpy(usr[cl].path[usr[cl].nrFiles], p);
 			strcpy(usr[cl].file[usr[cl].nrFiles], strrchr(p, '/') + 1);
 			
@@ -228,13 +232,20 @@ void answerRequest(void* arg) {
 
 			break;
 		}
+		case 'n' : {
+			printf("[Thread %d] The client %d stopped uploading\n", tdL.idThread, usr[cl].idUser);
+
+			usr[cl].nrFiles--;
+
+			break;
+		}
 		case 'e': {
-			printf("[Thread %d] The client %d disconnected from the server\n", tdL.idThread, cl);
+			printf("[Thread %d] The client %d disconnected from the server\n", tdL.idThread, usr[cl].idUser);
 
 			usr[cl].idUser = -1;
 			usr[cl].nrFiles = 0;
 
-			nrUsers--;
+			// nrUsers--;
 
 			run = false;
 			break;
@@ -245,5 +256,5 @@ void answerRequest(void* arg) {
 
 		printf("\n");
 
-	} while(run == true);
+	} while(run);
 }

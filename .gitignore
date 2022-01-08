@@ -1,12 +1,11 @@
 peer
 server
 
-./flower.jpg
-./flower.txt
-./folder/crow.docx
-./folder/movie.mp4
+flower.jpg
+flower.txt
+folder
 
-./downloads
+downloads
 
 test.cpp
 
