@@ -1,6 +1,7 @@
 #ifndef VALIDATION_H
 #define VALIDATION_H
 
+#include <stdio.h>
 #include <cstring>
 #include <cctype>
 
@@ -74,6 +75,10 @@ void getIPandPort(char* host, int &port) {
 }
 
 bool validatePath(const char* path) {
+    if(access(path, F_OK) == -1) {
+        return false;
+    }
+
     return true;
 }
 

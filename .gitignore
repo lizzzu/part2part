@@ -4,12 +4,8 @@ server
 flower.jpg
 flower.txt
 folder
-
 downloads
 
-test.cpp
+peer_info.db
 
-dragos_client.c
-dragos_client
-dragos_server.c
-dragos_server
+test.cpp

@@ -12,7 +12,7 @@
 #include <sqlite3.h>
 
 #include "validation.hpp"
-// #include "database_functions.hpp"
+#include "database_functions.hpp"
 
 extern int errno;
 
@@ -24,16 +24,18 @@ typedef struct thData {
 
 typedef struct Users {
 	int idUser = -1;
-	char host[20];
+	char host[255];
 	int port;
 	int nrFiles = 0;
-	char file[20][100];
-	char path[20][1000];
+	char file[20][255];
+	char path[20][255];
 } Users;
 
 
 Users* usr = (struct Users*)malloc(sizeof(struct Users) * CONNECTIONS);
 int nrUsers = 0;
+
+sqlite3* db;
 
 
 void runServer(const char* host, int port);
@@ -47,6 +49,7 @@ int main(int argc, char* argv[]) {
 	int port;
 	getIPandPort(host, port);
 
+	db = createDB();
 	runServer(host, port);
 
     return 0;
@@ -203,6 +206,8 @@ void answerRequest(void* arg) {
 		case 'u': {
 			p = strtok(NULL, "*");
 			strcpy(usr[cl].host, p);
+			if(usr[cl].host[0] == '0' && strlen(usr[cl].host) == 1)
+				strcpy(usr[cl].host, LOCALHOST);
 
 			p = strtok(NULL, "*");
 			usr[cl].port = atoi(p);
@@ -219,6 +224,8 @@ void answerRequest(void* arg) {
 			printf("Number of files: %d\n", usr[cl].nrFiles);
 			for(int f = 1; f <= usr[cl].nrFiles; f++)
 				printf("Shared file: %20s | Path: %s\n", usr[cl].file[f], usr[cl].path[f]);
+			
+			addPeer(db, usr[cl].idUser, usr[cl].host, usr[cl].port, usr[cl].file[usr[cl].nrFiles], usr[cl].path[usr[cl].nrFiles]);
 
 			char send_msg[100];
 			sprintf(send_msg, "[ID = %d] Uploading: %s\n", usr[cl].idUser, p);
@@ -234,7 +241,8 @@ void answerRequest(void* arg) {
 		}
 		case 'n' : {
 			printf("[Thread %d] The client %d stopped uploading\n", tdL.idThread, usr[cl].idUser);
-
+			
+			removePeer(db, usr[cl].idUser);
 			usr[cl].nrFiles--;
 
 			break;
@@ -242,6 +250,7 @@ void answerRequest(void* arg) {
 		case 'e': {
 			printf("[Thread %d] The client %d disconnected from the server\n", tdL.idThread, usr[cl].idUser);
 
+			removePeer(db, usr[cl].idUser);
 			usr[cl].idUser = -1;
 			usr[cl].nrFiles = 0;
 
