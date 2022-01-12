@@ -1,3 +1,4 @@
+// skeleton: https://profs.info.uaic.ro/~computernetworks/files/NetEx/S12/ServerConcThread/servTcpConcTh2.c
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -14,8 +15,7 @@
 #include "validation.hpp"
 #include "database_functions.hpp"
 
-extern int errno;
-
+// extern int errno;
 
 typedef struct thData {
 	int idThread;
@@ -146,6 +146,8 @@ void answerRequest(void* arg) {
 		case 's': {
 			p = strtok(NULL, " ");
 			printf("[Thread %d] The client wants to search for: %s\n", tdL.idThread, p);
+
+			getFileFromPeer(db, p);
 
 			int foundFiles[20][20];
 			int countFiles = 0;

@@ -1,3 +1,4 @@
+// skeleton: https://profs.info.uaic.ro/~computernetworks/files/NetEx/S12/ServerConcThread/cliTcpNr.c
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -11,8 +12,7 @@
 
 #include "validation.hpp"
 
-extern int errno;
-
+// extern int errno;
 
 typedef struct Users {
 	int idUser = -1;
